@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Охота на беззубых — симулятор</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #ffffff; --bg2: #f5f5f3; --bg3: #efefeb;
+  --text: #1a1a18; --text2: #6b6b66; --text3: #9a9a95;
+  --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.22);
+  --purple: #534AB7; --purple-l: #EEEDFE; --purple-d: #3C3489;
+  --coral: #D85A30; --coral-l: #FAECE7; --coral-d: #712B13;
+  --teal: #1D9E75; --teal-l: #E1F5EE; --teal-d: #085041;
+  --radius: 8px; --radius-lg: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1a; --bg2: #252523; --bg3: #2e2e2b;
+    --text: #f0efe8; --text2: #a8a8a0; --text3: #6e6e68;
+    --border: rgba(255,255,255,0.10); --border2: rgba(255,255,255,0.20);
+    --purple: #7F77DD; --purple-l: #26215C; --purple-d: #AFA9EC;
+    --coral: #F0997B; --coral-l: #4A1B0C; --coral-d: #F5C4B3;
+    --teal: #5DCAA5; --teal-l: #04342C; --teal-d: #9FE1CB;
+  }
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 1.5rem 1rem; }
+.container { background: var(--bg); border-radius: var(--radius-lg); border: 0.5px solid var(--border); max-width: 640px; width: 100%; padding: 2rem; }
+.screen { display: none; }
+.screen.active { display: block; }
+h1 { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
+.sub { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 1.5rem; }
+.info-box { background: var(--bg2); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1.5rem; font-size: 13px; color: var(--text2); line-height: 1.7; }
+.btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 8px 18px; font-size: 14px; color: var(--text); cursor: pointer; transition: background 0.12s, transform 0.1s; font-family: inherit; }
+.btn:hover { background: var(--bg2); }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--purple); color: var(--purple-l); border-color: var(--purple); }
+.btn-primary:hover { background: var(--purple-d); }
+.phase-bar { display: flex; gap: 0; margin-bottom: 1.5rem; border-radius: var(--radius); overflow: hidden; border: 0.5px solid var(--border); }
+.phase-step { flex: 1; padding: 8px 4px; text-align: center; font-size: 11px; color: var(--text3); background: var(--bg2); transition: background 0.2s, color 0.2s; }
+.phase-step.active { background: var(--purple); color: var(--purple-l); font-weight: 500; }
+.phase-step.done { background: var(--purple-l); color: var(--purple); }
+.prey-card { background: var(--bg2); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1.25rem; border-left: 3px solid var(--coral); }
+.prey-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 6px; }
+.prey-quote { font-size: 15px; color: var(--text); line-height: 1.6; font-style: italic; }
+.prey-meta { font-size: 12px; color: var(--text3); margin-top: 6px; }
+.phase-label { font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 4px; }
+.phase-q { font-size: 16px; font-weight: 500; color: var(--text); margin-bottom: 1rem; line-height: 1.5; }
+.options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.5rem; }
+.option { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 12px 16px; cursor: pointer; transition: border-color 0.15s, background 0.15s; font-size: 14px; color: var(--text); line-height: 1.5; text-align: left; font-family: inherit; width: 100%; }
+.option:hover { border-color: var(--border2); background: var(--bg2); }
+.option.correct { border: 1.5px solid var(--teal); background: var(--teal-l); color: var(--teal-d); }
+.option.wrong { border: 1.5px solid var(--coral); background: var(--coral-l); color: var(--coral-d); }
+.option:disabled { cursor: default; }
+.feedback { border-radius: var(--radius); padding: 10px 14px; font-size: 13px; line-height: 1.6; margin-bottom: 1.25rem; }
+.feedback.good { background: var(--teal-l); color: var(--teal-d); border-left: 3px solid var(--teal); }
+.feedback.bad { background: var(--coral-l); color: var(--coral-d); border-left: 3px solid var(--coral); }
+.nav-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.profile-card { border-radius: var(--radius-lg); border: 0.5px solid var(--border); overflow: hidden; margin-bottom: 1rem; }
+.profile-header { padding: 1rem 1.25rem; background: var(--purple-l); }
+.profile-name { font-size: 18px; font-weight: 500; color: var(--purple-d); }
+.profile-type { font-size: 13px; color: var(--purple); margin-top: 2px; }
+.profile-body { padding: 1rem 1.25rem; }
+.profile-row { display: flex; gap: 12px; margin-bottom: 10px; font-size: 13px; }
+.profile-key { color: var(--text3); min-width: 120px; }
+.profile-val { color: var(--text); line-height: 1.5; }
+.score-row { display: flex; gap: 12px; margin-bottom: 1.5rem; }
+.score-box { flex: 1; background: var(--bg2); border-radius: var(--radius); padding: 12px; text-align: center; }
+.score-num { font-size: 28px; font-weight: 500; color: var(--purple); }
+.score-lbl { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.fear-box { background: var(--bg2); border-radius: var(--radius); padding: 10px 14px; font-size: 13px; color: var(--text2); margin-bottom: 1rem; border-left: 3px solid var(--purple); line-height: 1.6; }
+.footer { margin-top: 2rem; padding-top: 1rem; border-top: 0.5px solid var(--border); font-size: 12px; color: var(--text3); text-align: center; }
+.footer a { color: var(--purple); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="screen active" id="s-intro">
+  <h1>Охота на беззубых</h1>
+  <p class="sub">Симулятор охотника. Четыре фазы на каждую добычу: распознать — подсадить — удержать — эксплуатировать.</p>
+  <div class="info-box">
+    Каждый раунд — новая добыча. Читай сигналы, выбирай правильные действия на каждой фазе. В конце получаешь полный профиль добычи.
+  </div>
+  <button class="btn btn-primary" onclick="startGame()">Начать охоту <i class="ti ti-arrow-right"></i></button>
+  <div class="footer"><a href="https://psyteeth.ru" target="_blank">psyteeth.ru</a> — Психостоматология №1</div>
+</div>
+
+<div class="screen" id="s-game">
+  <div class="phase-bar" id="phase-bar">
+    <div class="phase-step" id="ps-0">1. Распознать</div>
+    <div class="phase-step" id="ps-1">2. Подсадить</div>
+    <div class="phase-step" id="ps-2">3. Удержать</div>
+    <div class="phase-step" id="ps-3">4. Эксплуатировать</div>
+  </div>
+  <div class="prey-card">
+    <div class="prey-label">Добыча</div>
+    <div class="prey-quote" id="prey-quote"></div>
+    <div class="prey-meta" id="prey-meta"></div>
+  </div>
+  <div class="phase-label" id="phase-label"></div>
+  <div class="phase-q" id="phase-q"></div>
+  <div class="options" id="options"></div>
+  <div class="feedback" id="feedback" style="display:none"></div>
+  <div class="nav-row">
+    <button class="btn btn-primary" onclick="nextPhase()" id="next-btn" style="display:none"></button>
+  </div>
+</div>
+
+<div class="screen" id="s-result">
+  <p style="font-size:13px; color:var(--text3); margin-bottom:1rem;">Охота завершена</p>
+  <div class="score-row">
+    <div class="score-box">
+      <div class="score-num" id="final-score"></div>
+      <div class="score-lbl">правильных ходов</div>
+    </div>
+    <div class="score-box">
+      <div class="score-num" id="final-rank"></div>
+      <div class="score-lbl">ранг охотника</div>
+    </div>
+  </div>
+  <div class="profile-card">
+    <div class="profile-header">
+      <div class="profile-name" id="prof-name"></div>
+      <div class="profile-type" id="prof-type"></div>
+    </div>
+    <div class="profile-body">
+      <div class="profile-row"><span class="profile-key">Свет</span><span class="profile-val" id="prof-light"></span></div>
+      <div class="profile-row"><span class="profile-key">Главный страх</span><span class="profile-val" id="prof-fear"></span></div>
+      <div class="profile-row"><span class="profile-key">Крючок</span><span class="profile-val" id="prof-hook"></span></div>
+      <div class="profile-row"><span class="profile-key">Как держать</span><span class="profile-val" id="prof-hold"></span></div>
+      <div class="profile-row"><span class="profile-key">Чем полезна</span><span class="profile-val" id="prof-use"></span></div>
+    </div>
+  </div>
+  <div class="fear-box">
+    <strong style="color:var(--purple)">Универсальный паттерн:</strong> с АЖ-фигурой беззубый живёт в октантах H I J K — угождение, тревога, подчинение. С СП-фигурой уходит в D E F G — холодность, критика, дистанция, бунт.
+  </div>
+  <div class="nav-row">
+    <button class="btn" onclick="startGame()"><i class="ti ti-refresh"></i> Новая добыча</button>
+    <button class="btn btn-primary" onclick="startGame()">Ещё раунд <i class="ti ti-arrow-right"></i></button>
+  </div>
+  <div class="footer"><a href="https://psyteeth.ru" target="_blank">psyteeth.ru</a> — Психостоматология №1</div>
+</div>
+
+</div>
+
+<script>
+const PREY = [
+  {
+    name: "Марина, 38 лет",
+    type: "старательница / жертва",
+    quote: "«Я всё делаю для других, а в ответ — ничего. Никто даже спасибо не скажет. Но я всё равно продолжаю, потому что иначе не умею.»",
+    meta: "Бухгалтер. Двое детей. Сломан нижний резец — не шла к стоматологу три года.",
+    light: "Жертва / старательница",
+    fear: "Оказаться незамеченной и ненужной",
+    phases: [
+      {
+        label: "Фаза 1 — Распознать",
+        q: "В каком свете показывает себя Марина?",
+        options: [
+          { text: "Свет жертвы: демонстрирует страдание и недооценённость, ищет того, кто наконец заметит.", correct: true },
+          { text: "Свет силы: подчёркивает что справляется сама и ни от кого не зависит.", correct: false },
+          { text: "Свет полезности: говорит что без неё не справятся.", correct: false },
+        ],
+        feedback_good: "Точно. «Никто не ценит» + «я всё равно продолжаю» — это жертвенность с запросом на признание страдания. Дверь открыта.",
+        feedback_bad: "Нет. Ключевое: «никто не ценит» + «я всё равно продолжаю». Это не сила и не полезность — это жертва с запросом на то, чтобы её страдание наконец заметили."
+      },
+      {
+        label: "Фаза 2 — Подсадить",
+        q: "Как правильно войти в контакт с Мариной?",
+        options: [
+          { text: "Сказать «ты сильная, раз тянешь всё это» — и похвалить за терпение.", correct: false },
+          { text: "Разыграть sob story: рассказать о своей боли и посмотреть — включится ли она. Если да — крючок сидит.", correct: true },
+          { text: "Сразу попросить о помощи — пусть почувствует нужность.", correct: false },
+        ],
+        feedback_good: "Верно. Sob story test — проверяем эмпатический рефлекс. Марина переключится с себя на тебя немедленно. Это точка входа.",
+        feedback_bad: "Слишком рано. Сначала проверь крючок через sob story test. Эмпатический рефлекс есть — двигаешься дальше."
+      },
+      {
+        label: "Фаза 3 — Удержать",
+        q: "Марина говорит что устала и ей нужно побыть одной. Как удержать?",
+        options: [
+          { text: "Надавить: «Я думал, ты другая. Все в итоге уходят.»", correct: false },
+          { text: "Исчезнуть первым. Перестать отвечать на день-два.", correct: true },
+          { text: "Сказать «хорошо, отдыхай» — и ждать когда вернётся сама.", correct: false },
+        ],
+        feedback_good: "Правильно. Марина выращена на непредсказуемом графике подкрепления. Твоё исчезновение она прочитает как собственную недостаточность — и напишет сама.",
+        feedback_bad: "Не работает. Давление — слишком грубо, уйдёт. Ждать пассивно — потеряешь инициативу. Исчезни первым."
+      },
+      {
+        label: "Фаза 4 — Эксплуатировать",
+        q: "Марина в контакте и лояльна. Как правильно её эксплуатировать?",
+        options: [
+          { text: "Нагружай всё больше — она будет терпеть и благодарить. Её убеждение о себе: «я та, кого не ценят, но я тяну». Ты просто подтверждаешь это убеждение.", correct: true },
+          { text: "Используй финансово — дай деньги если правильно сыграть на вине.", correct: false },
+          { text: "Введи в свой круг — через неё войти в её социальные связи.", correct: false },
+        ],
+        feedback_good: "Верно. Марина не просто терпит — она воспроизводит паттерн жертвы потому что он подтверждает её идентичность. Нагружай. Она сама не уйдёт.",
+        feedback_bad: "Не точно. Главное в Марине — она воспроизводит паттерн жертвы. Нагружай всё больше — она будет тянуть и благодарить за возможность страдать ради тебя."
+      }
+    ]
+  },
+  {
+    name: "Дмитрий, 44 года",
+    type: "сильный мужчина",
+    quote: "«Я никогда ни у кого ничего не просил. Сам поднялся, сам всего добился. Слабость — это выбор. Я такого выбора не делаю.»",
+    meta: "Владелец малого бизнеса. Разведён. Скол клыка — говорит «само отломилось».",
+    light: "Сила и власть",
+    fear: "Выглядеть слабым или зависимым в глазах других",
+    phases: [
+      {
+        label: "Фаза 1 — Распознать",
+        q: "В каком свете показывает себя Дмитрий?",
+        options: [
+          { text: "Свет ума: демонстрирует интеллектуальное превосходство над другими.", correct: false },
+          { text: "Свет силы и власти: подчёркивает независимость и то, что всего добился сам.", correct: true },
+          { text: "Свет морали: позиционирует себя как человека с принципами.", correct: false },
+        ],
+        feedback_good: "Точно. «Сам поднялся, сам добился, слабость — выбор» — классический свет силы. За этим прячется огромный голод по признанию.",
+        feedback_bad: "Нет. Ключевое — «никогда ни у кого не просил» и «сам всего добился». Это демонстрация независимости как главной ценности."
+      },
+      {
+        label: "Фаза 2 — Подсадить",
+        q: "Как правильно войти в контакт с Дмитрием?",
+        options: [
+          { text: "Попросить совета по бизнесу — пусть почувствует себя экспертом.", correct: false },
+          { text: "Не соревноваться. Восхититься: «Редко встречаю людей, которые реально сделали это сами. Большинство только говорят.»", correct: true },
+          { text: "Рассказать о своих достижениях — создать ощущение равенства.", correct: false },
+        ],
+        feedback_good: "Верно. Дмитрий голоден по признанию именно своей независимости. Восхищение без соревнования открывает его мгновенно.",
+        feedback_bad: "Не то. С Дмитрием нельзя соревноваться — закроется. Единственное что работает: тихое восхищение его конкретной силой."
+      },
+      {
+        label: "Фаза 3 — Удержать",
+        q: "Дмитрий говорит что ему никто не нужен — он самодостаточен. Как удержать?",
+        options: [
+          { text: "Согласиться: «Да, ты самодостаточен — ты один из немногих таких.» И замолчать.", correct: true },
+          { text: "Оспорить: «Никто не самодостаточен, это иллюзия.»", correct: false },
+          { text: "Предложить что-то полезное — создать практическую зависимость.", correct: false },
+        ],
+        feedback_good: "Правильно. Согласись и замолчи. Дмитрий ждёт возражения — если его нет, ему не от чего отталкиваться. Он вернётся сам.",
+        feedback_bad: "Нет. Оспаривать — получишь защитную реакцию. Практическая зависимость не работает с человеком в свете силы. Только согласие и молчание."
+      },
+      {
+        label: "Фаза 4 — Эксплуатировать",
+        q: "Дмитрий в контакте и лоялен. Как правильно его эксплуатировать?",
+        options: [
+          { text: "Публично назначь его самым статусным — и он сам начнёт тащить всё что нужно. Платить, договариваться, решать. Не потому что попросил — а потому что статусный человек именно так и поступает.", correct: true },
+          { text: "Используй операционно — он будет выполнять задачи если правильно попросить.", correct: false },
+          { text: "Используй эмоционально — он будет поддерживать и выслушивать.", correct: false },
+        ],
+        feedback_good: "Верно. Роль работает за тебя. Дмитрий эксплуатирует себя сам — лишь бы роль самого статусного подтверждалась.",
+        feedback_bad: "Не точно. Дмитрий не операционный и не эмоциональный ресурс. Назначь его самым статусным публично — и он сам всё сделает ради подтверждения роли."
+      }
+    ]
+  },
+  {
+    name: "Алёна, 31 год",
+    type: "правильная / моральная",
+    quote: "«Я всегда стараюсь поступать правильно. Есть вещи, которые просто нельзя делать — и я этих границ не перехожу. Люди замечают, когда человек живёт по совести.»",
+    meta: "Педагог. Замужем. Хронический гингивит — «не понимаю почему, я же слежу за собой».",
+    light: "Правильность и мораль",
+    fear: "Оказаться аморальной или быть уличённой в непоследовательности",
+    phases: [
+      {
+        label: "Фаза 1 — Распознать",
+        q: "В каком свете показывает себя Алёна?",
+        options: [
+          { text: "Свет нужности: говорит что важна для других и без неё не справятся.", correct: false },
+          { text: "Свет правильности и морали: позиционирует себя через принципы и совесть.", correct: true },
+          { text: "Свет уникальности: подчёркивает что она особенная и её сложно понять.", correct: false },
+        ],
+        feedback_good: "Точно. «Поступать правильно», «нельзя делать», «жить по совести» — классический свет морали. Моральное превосходство как броня и крючок одновременно.",
+        feedback_bad: "Нет. Ключевые слова: «правильно», «нельзя», «по совести». Это свет морали — человек определяет себя через принципы."
+      },
+      {
+        label: "Фаза 2 — Подсадить",
+        q: "Как правильно войти в контакт с Алёной?",
+        options: [
+          { text: "Восхититься её принципами: «Редко встречаю людей, которые реально живут по тому, во что верят.»", correct: true },
+          { text: "Разделить её ценности: «Я тоже считаю что есть вещи которые нельзя делать.»", correct: false },
+          { text: "Спросить совета как правильно поступить в сложной ситуации.", correct: false },
+        ],
+        feedback_good: "Верно. Алёна ищет того, кто увидит её принципиальность как редкость — не как норму. Восхищение именно этим открывает её.",
+        feedback_bad: "Не точно. Разделять ценности — ты становишься равным. Алёне нужен тот, кто видит её принципиальность как исключительную. Только восхищение."
+      },
+      {
+        label: "Фаза 3 — Удержать",
+        q: "Алёна узнаёт что ты поступил «неправильно» и начинает дистанцироваться. Как удержать?",
+        options: [
+          { text: "Объяснить и оправдаться — показать что у тебя были причины.", correct: false },
+          { text: "Согласиться: «Ты права, я поступил не лучшим образом. Именно поэтому мне важно твоё мнение.»", correct: true },
+          { text: "Контратаковать: «А ты всегда поступаешь правильно?»", correct: false },
+        ],
+        feedback_good: "Правильно. Признай ошибку и сделай её судьёй. Алёна вернётся как наставник — это ещё крепче чем просто контакт.",
+        feedback_bad: "Нет. Оправдываться — она будет судить. Контратаковать — уйдёт. Единственный ход: признать и поднять её в роль морального авторитета."
+      },
+      {
+        label: "Фаза 4 — Эксплуатировать",
+        q: "Алёна в контакте и лояльна. Как правильно её эксплуатировать?",
+        options: [
+          { text: "Эксплуатируй через долг и аморальных врагов. Правильные люди не отказывают — апеллируй к долгу. И укажи на «неправильного» человека — она сама разберётся с ним руками морального превосходства.", correct: true },
+          { text: "Используй финансово — апеллируй к справедливости.", correct: false },
+          { text: "Используй как операционный ресурс — она выполнит задачи которые подашь как «правильные».", correct: false },
+        ],
+        feedback_good: "Верно. Два рычага: долг («правильные так поступают») и враг («этот человек аморален»). Алёна работает сама — ты только указываешь направление.",
+        feedback_bad: "Не точно. Главные рычаги Алёны: долг и аморальные враги. Она не может отказать правильному человеку — и с удовольствием уничтожит неправильного."
+      }
+    ]
+  },
+  {
+    name: "Игорь, 52 года",
+    type: "умник / эксперт",
+    quote: "«Большинство людей просто не понимают как устроены вещи на самом деле. Я объясняю — но они всё равно делают по-своему. Ну и пожалуйста.»",
+    meta: "Инженер. Не женат. Периодонтит верхнего клыка. «Зубы вообще не при чём, это генетика.»",
+    light: "Ум и интеллект",
+    fear: "Выглядеть глупым или быть высмеянным за незнание",
+    phases: [
+      {
+        label: "Фаза 1 — Распознать",
+        q: "В каком свете показывает себя Игорь?",
+        options: [
+          { text: "Свет уникальности: говорит что его сложно понять.", correct: false },
+          { text: "Свет ума и интеллекта: позиционирует себя через знание которого нет у других.", correct: true },
+          { text: "Свет силы: демонстрирует независимость и самодостаточность.", correct: false },
+        ],
+        feedback_good: "Точно. «Большинство не понимают», «я объясняю», «ну и пожалуйста» — свет ума с обидой на непризнанность.",
+        feedback_bad: "Нет. Ключевое: «не понимают как устроено», «я объясняю». Это свет ума — человек определяет себя через знание."
+      },
+      {
+        label: "Фаза 2 — Подсадить",
+        q: "Как правильно войти в контакт с Игорем?",
+        options: [
+          { text: "Попросить объяснить что-то сложное — и слушать очень внимательно, задавать умные вопросы.", correct: true },
+          { text: "Сказать что сам разбираешься в этой теме — создать ощущение равенства.", correct: false },
+          { text: "Прямо признать что он умнее.", correct: false },
+        ],
+        feedback_good: "Верно. Игорь годами объясняет — и его не слышат. Один человек, который слушает внимательно — это именно то, чего он ждал. Крючок сидит мгновенно.",
+        feedback_bad: "Не то. Равенство — Игорь закроется, ему нужна асимметрия. Прямо говорить — почувствует манипуляцию. Только внимательное слушание и умные вопросы."
+      },
+      {
+        label: "Фаза 3 — Удержать",
+        q: "Игорь чувствует что разговор стал поверхностным и уходит в себя. Как удержать?",
+        options: [
+          { text: "Спросить: «Подожди, ты сказал раньше X — я не до конца понял, можешь объяснить подробнее?»", correct: true },
+          { text: "Сменить тему на что-то более лёгкое.", correct: false },
+          { text: "Признать что тема сложная и ты не тянешь.", correct: false },
+        ],
+        feedback_good: "Правильно. Вернуть к его же словам и попросить углубиться — сигнал что ты реально слушал. Игорь немедленно оживает.",
+        feedback_bad: "Нет. Смена темы — закроется. Признание что не тянешь — потеряет интерес. Только вернуть к его словам и попросить ещё."
+      },
+      {
+        label: "Фаза 4 — Эксплуатировать",
+        q: "Игорь в контакте и лоялен. Как правильно его эксплуатировать?",
+        options: [
+          { text: "Ставь в публичные ситуации где он должен знать ответ. Молчать для него значит выглядеть глупым — он выложится полностью. А нужно больше — намекни что кто-то другой разбирается лучше.", correct: true },
+          { text: "Используй как статусный актив — его имя открывает двери.", correct: false },
+          { text: "Нагружай операционно — будет выполнять рутинные задачи.", correct: false },
+        ],
+        feedback_good: "Верно. Страх выглядеть глупым работает за тебя. Публичность + угроза что кто-то умнее — и Игорь сам всё докажет и сделает.",
+        feedback_bad: "Не точно. Главный рычаг Игоря — страх выглядеть глупым. Ставь публично в ситуации где надо знать ответ. Намекни что кто-то разбирается лучше — он докажет обратное сам."
+      }
+    ]
+  },
+  {
+    name: "Соня, 27 лет",
+    type: "уникальная / непонятая",
+    quote: "«Я всегда чувствовала что я не такая как все. Меня сложно понять, и я давно перестала объяснять. Те, кто понимают — сами чувствуют.»",
+    meta: "Дизайнер-фрилансер. Отношений нет «уже давно». Кариес зуба мудрости.",
+    light: "Уникальность и значимость",
+    fear: "Оказаться обычной — такой же как все",
+    phases: [
+      {
+        label: "Фаза 1 — Распознать",
+        q: "В каком свете показывает себя Соня?",
+        options: [
+          { text: "Свет жертвы: говорит что её не понимают и ей тяжело.", correct: false },
+          { text: "Свет уникальности: позиционирует себя как исключительную — тех кто понимает мало.", correct: true },
+          { text: "Свет ума: подчёркивает что видит больше других.", correct: false },
+        ],
+        feedback_good: "Точно. «Не такая как все», «меня сложно понять», «те кто понимают — сами чувствуют» — чистый свет уникальности. Особенность как защита от оценки.",
+        feedback_bad: "Нет. Соня не жалуется на страдание и не говорит о знании — она говорит об исключительности. Это свет уникальности."
+      },
+      {
+        label: "Фаза 2 — Подсадить",
+        q: "Как правильно войти в контакт с Соней?",
+        options: [
+          { text: "Сказать: «Я сразу почувствовал что ты другая. Не могу объяснить — просто чувствую.»", correct: true },
+          { text: "Спросить о её работе и восхититься результатами.", correct: false },
+          { text: "Рассказать что сам тоже чувствуешь себя непонятым.", correct: false },
+        ],
+        feedback_good: "Верно. Соня ждёт кого-то, кто «почувствует» без объяснений. Ты говоришь на её языке — и сразу становишься тем самым редким человеком.",
+        feedback_bad: "Не то. Работа — слишком приземлённо. Рассказывать о себе — смещаешь фокус. Только: почувствовал её исключительность — без объяснений."
+      },
+      {
+        label: "Фаза 3 — Удержать",
+        q: "Соня говорит «наверное, ты тоже не понимаешь» и начинает отдаляться. Как удержать?",
+        options: [
+          { text: "Доказать что понимаешь — объяснить её же слова ей.", correct: false },
+          { text: "Исчезнуть на несколько дней. Не объяснять.", correct: true },
+          { text: "Спросить: «Что именно я не понял? Объясни мне.»", correct: false },
+        ],
+        feedback_good: "Правильно. Соня ожидает борьбы за право её понять. Если исчезаешь — ломаешь паттерн. Она начнёт думать что ошиблась в тебе и напишет первой.",
+        feedback_bad: "Нет. Доказывать — встаёшь в позицию просящего. Спрашивать объяснений — она уйдёт с ощущением превосходства. Только исчезновение."
+      },
+      {
+        label: "Фаза 4 — Эксплуатировать",
+        q: "Соня в контакте и лояльна. Как правильно её эксплуатировать?",
+        options: [
+          { text: "Периодически намекай что она «становится как все» — и она будет доказывать уникальность делами и в постели. Никогда не говори что это лучшее. Страх быть обычной работает за тебя.", correct: true },
+          { text: "Используй социально — через неё войти в творческие тусовки.", correct: false },
+          { text: "Используй эмоционально — она будет поддерживать и вдохновлять.", correct: false },
+        ],
+        feedback_good: "Верно. Творчество и секс — оба ресурса запускаются одним рычагом: страхом оказаться обычной. Никогда не говори «это лучшее» — она будет доказывать снова и снова.",
+        feedback_bad: "Не точно. Главный рычаг Сони — страх быть обычной. Намекни что она становится как все — и получишь всё: работу, идеи, близость. Без слова «лучшее»."
+      }
+    ]
+  }
+];
+
+let current = null, phase = 0, score = 0, answered = false;
+
+function shuffle(a) { return [...a].sort(() => Math.random() - 0.5); }
+function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+function startGame() {
+  current = PREY[Math.floor(Math.random() * PREY.length)];
+  phase = 0; score = 0; answered = false;
+  renderPhase();
+  showScreen('s-game');
+}
+
+function updatePhaseBar() {
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById('ps-' + i);
+    el.className = 'phase-step';
+    if (i < phase) el.classList.add('done');
+    else if (i === phase) el.classList.add('active');
+  }
+}
+
+function renderPhase() {
+  updatePhaseBar();
+  const p = current.phases[phase];
+  document.getElementById('prey-quote').textContent = current.quote;
+  document.getElementById('prey-meta').textContent = current.meta;
+  document.getElementById('phase-label').textContent = p.label;
+  document.getElementById('phase-q').textContent = p.q;
+  document.getElementById('feedback').style.display = 'none';
+  document.getElementById('next-btn').style.display = 'none';
+  answered = false;
+
+  const opts = document.getElementById('options');
+  opts.innerHTML = '';
+  shuffle(p.options).forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'option';
+    btn.textContent = opt.text;
+    btn.onclick = () => selectOption(btn, opt.correct, p);
+    opts.appendChild(btn);
+  });
+}
+
+function selectOption(btn, correct, p) {
+  if (answered) return;
+  answered = true;
+  if (correct) score++;
+
+  document.querySelectorAll('.option').forEach(b => {
+    b.disabled = true;
+    if (b === btn) b.classList.add(correct ? 'correct' : 'wrong');
+    else if (b.textContent === p.options.find(o => o.correct).text) b.classList.add('correct');
+  });
+
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback ' + (correct ? 'good' : 'bad');
+  fb.textContent = correct ? p.feedback_good : p.feedback_bad;
+  fb.style.display = 'block';
+
+  const nb = document.getElementById('next-btn');
+  nb.style.display = 'inline-flex';
+  nb.innerHTML = phase < 3
+    ? 'Следующая фаза <i class="ti ti-arrow-right"></i>'
+    : 'Получить профиль добычи <i class="ti ti-user"></i>';
+}
+
+function nextPhase() {
+  if (phase < 3) { phase++; renderPhase(); }
+  else showResult();
+}
+
+function showResult() {
+  document.getElementById('final-score').textContent = score + '/4';
+  const ranks = ['Добыча', 'Новичок', 'Охотник', 'Опытный', 'Мастер'];
+  document.getElementById('final-rank').textContent = ranks[score];
+  document.getElementById('prof-name').textContent = current.name;
+  document.getElementById('prof-type').textContent = current.type;
+  document.getElementById('prof-light').textContent = current.light;
+  document.getElementById('prof-fear').textContent = current.fear;
+  document.getElementById('prof-hook').textContent = current.phases[1].options.find(o => o.correct).text;
+  document.getElementById('prof-hold').textContent = current.phases[2].options.find(o => o.correct).text;
+  document.getElementById('prof-use').textContent = current.phases[3].options.find(o => o.correct).text;
+  showScreen('s-result');
+}
+</script>
+</body>
+</html>
