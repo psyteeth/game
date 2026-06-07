@@ -79,6 +79,14 @@ h1 { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
 .score-lbl { font-size: 12px; color: var(--text3); margin-top: 2px; }
 .footer { margin-top: 2rem; padding-top: 1rem; border-top: 0.5px solid var(--border); font-size: 12px; color: var(--text3); text-align: center; }
 .footer a { color: var(--purple); text-decoration: none; }
+.vuln-pattern { background: var(--coral-l); border-left: 3px solid var(--coral); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px; }
+.vuln-pattern-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--coral); margin-bottom: 4px; }
+.vuln-pattern-title { font-size: 14px; font-weight: 500; color: var(--coral-d); margin-bottom: 4px; }
+.vuln-pattern-text { font-size: 13px; color: var(--coral-d); line-height: 1.6; }
+.vuln-item { background: var(--bg2); border-left: 3px solid var(--border2); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px; }
+.vuln-item-phase { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 4px; }
+.vuln-item-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.vuln-item-text { font-size: 13px; color: var(--text2); line-height: 1.6; }
 </style>
 </head>
 <body>
@@ -136,6 +144,11 @@ h1 { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
     </div>
     <div class="profile-body" id="prof-body"></div>
   </div>
+  <div id="vuln-block" style="display:none; margin-bottom:1rem;">
+    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text3); margin-bottom:10px;">Что говорят твои ошибки</div>
+    <div id="vuln-list"></div>
+  </div>
+
   <div class="nav-row">
     <button class="btn" onclick="startGame()"><i class="ti ti-refresh"></i> Новая добыча</button>
     <button class="btn btn-primary" onclick="startGame()">Ещё раунд <i class="ti ti-arrow-right"></i></button>
@@ -655,7 +668,7 @@ function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.cl
 
 function startGame() {
   current = PREY[Math.floor(Math.random() * PREY.length)];
-  phase = 0; score = 0; answered = false;
+  phase = 0; score = 0; answered = false; mistakes = [];
   renderPhase();
   showScreen('s-game');
 }
@@ -697,6 +710,7 @@ function selectOption(btn, correct, p) {
   if (answered) return;
   answered = true;
   if (correct) score++;
+  else mistakes.push({ phase: phase, prey: current.name });
 
   document.querySelectorAll('.option').forEach(b => {
     b.disabled = true;
@@ -731,6 +745,9 @@ function nextPhase() {
   else showResult();
 }
 
+// Хранилище ошибок
+let mistakes = [];
+
 function showResult() {
   document.getElementById('final-score').textContent = score + '/4';
   const ranks = ['Добыча', 'Новичок', 'Охотник', 'Опытный', 'Мастер'];
@@ -748,6 +765,69 @@ function showResult() {
     div.innerHTML = `<span class="profile-key">${row.key}</span><span class="profile-val">${row.val}<div class="profile-ref">${refs} — ${row.refs.map(n => MANUAL[n]).join(' / ')}${expandMark}</div></span>`;
     body.appendChild(div);
   });
+
+  // Блок уязвимостей
+  const vuln = document.getElementById('vuln-block');
+  if (mistakes.length === 0) {
+    vuln.style.display = 'none';
+  } else {
+    vuln.style.display = 'block';
+    const phaseMessages = {
+      0: {
+        title: "Не распознала свет",
+        text: "Ты не увидела кем прикидывается добыча. В жизни это значит что ты сама так себя подаёшь — и не замечаешь этого."
+      },
+      1: {
+        title: "Не угадала крючок",
+        text: "Ты не угадала на что клюёт этот тип. Скорее всего потому что сама клюёшь на то же самое — и это кажется тебе нормальным."
+      },
+      2: {
+        title: "Не знаешь как тебя возвращают",
+        text: "Ты не знаешь как тебя удерживают когда ты пытаешься уйти. В жизни ты уже уходила — и возвращалась. И не понимала почему."
+      },
+      3: {
+        title: "Не видишь как тебя используют",
+        text: "Ты не увидела как тебя используют. В жизни это выглядит как нормальные отношения или просто дружба."
+      }
+    };
+
+    // Проверяем повторяющиеся фазы
+    const phaseCounts = {};
+    mistakes.forEach(m => {
+      phaseCounts[m.phase] = (phaseCounts[m.phase] || 0) + 1;
+    });
+
+    let html = '';
+
+    // Если одна и та же фаза повторяется — выделяем паттерн
+    const repeatPhase = Object.keys(phaseCounts).find(p => phaseCounts[p] >= 2);
+    if (repeatPhase) {
+      const pm = phaseMessages[repeatPhase];
+      html += `<div class="vuln-pattern">
+        <div class="vuln-pattern-label">Твой паттерн — повторяется ${phaseCounts[repeatPhase]} раза</div>
+        <div class="vuln-pattern-title">${pm.title}</div>
+        <div class="vuln-pattern-text">${pm.text}</div>
+      </div>`;
+    }
+
+    // Уникальные ошибки
+    const shown = new Set();
+    mistakes.forEach(m => {
+      if (shown.has(m.phase)) return;
+      shown.add(m.phase);
+      const pm = phaseMessages[m.phase];
+      const isPattern = repeatPhase == m.phase;
+      if (!isPattern) {
+        html += `<div class="vuln-item">
+          <div class="vuln-item-phase">Фаза ${m.phase + 1} — ${['Распознать','Подсадить','Удержать','Эксплуатировать'][m.phase]}</div>
+          <div class="vuln-item-title">${pm.title}</div>
+          <div class="vuln-item-text">${pm.text}</div>
+        </div>`;
+      }
+    });
+
+    document.getElementById('vuln-list').innerHTML = html;
+  }
 
   showScreen('s-result');
 }
