@@ -79,6 +79,28 @@ h1 { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
 .score-lbl { font-size: 12px; color: var(--text3); margin-top: 2px; }
 .footer { margin-top: 2rem; padding-top: 1rem; border-top: 0.5px solid var(--border); font-size: 12px; color: var(--text3); text-align: center; }
 .footer a { color: var(--purple); text-decoration: none; }
+.history-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.history-bar-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); }
+.history-dots { display: flex; gap: 4px; align-items: center; }
+.history-dot { width: 8px; height: 8px; border-radius: 50%; }
+.history-dot.correct { background: var(--teal); }
+.history-dot.wrong { background: var(--coral); }
+.history-dot.empty { background: var(--border2); }
+.profile-section { margin-top: 1.5rem; }
+.profile-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 10px; }
+.pattern-card { border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px; border-left: 3px solid var(--coral); background: var(--coral-l); }
+.pattern-card.mild { border-color: var(--amber); background: var(--amber-l); }
+.pattern-card.none { border-color: var(--teal); background: var(--teal-l); }
+.pattern-title { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.pattern-title.coral { color: var(--coral-d); }
+.pattern-title.amber { color: var(--amber-d); }
+.pattern-title.teal { color: var(--teal-d); }
+.pattern-text { font-size: 12px; line-height: 1.6; color: var(--text2); }
+.choice-item { font-size: 12px; color: var(--text2); padding: 5px 10px; background: var(--bg2); border-radius: 4px; margin-bottom: 4px; line-height: 1.5; }
+.choice-item strong { color: var(--coral); font-weight: 500; }
+.reset-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text3); background: none; border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 5px 12px; cursor: pointer; font-family: inherit; margin-top: 1rem; }
+.reset-btn:hover { background: var(--bg2); }
+.rounds-count { font-size: 12px; color: var(--text3); margin-top: 6px; }
 .vuln-pattern { background: var(--coral-l); border-left: 3px solid var(--coral); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px; }
 .vuln-pattern-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--coral); margin-bottom: 4px; }
 .vuln-pattern-title { font-size: 14px; font-weight: 500; color: var(--coral-d); margin-bottom: 4px; }
@@ -127,7 +149,11 @@ h1 { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
 </div>
 
 <div class="screen" id="s-result">
-  <p style="font-size:13px; color:var(--text3); margin-bottom:1rem;">Охота завершена</p>
+  <p style="font-size:13px; color:var(--text3); margin-bottom:0.5rem;">Охота завершена</p>
+  <div class="history-bar">
+    <span class="history-bar-label">История раундов</span>
+    <div class="history-dots" id="history-dots"></div>
+  </div>
   <div class="score-row">
     <div class="score-box">
       <div class="score-num" id="final-score"></div>
@@ -150,7 +176,14 @@ h1 { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
     <div id="vuln-list"></div>
   </div>
 
-  <div class="nav-row">
+  <div id="cumulative-profile" style="display:none;" class="profile-section">
+    <div class="profile-section-label">Ваш накопительный профиль</div>
+    <div id="cumulative-content"></div>
+    <div class="rounds-count" id="rounds-count"></div>
+    <button class="reset-btn" onclick="resetHistory()"><i class="ti ti-trash"></i> Сбросить историю</button>
+  </div>
+
+  <div class="nav-row" style="margin-top:1rem;">
     <button class="btn" onclick="startGame()"><i class="ti ti-refresh"></i> Новая добыча</button>
     <button class="btn btn-primary" onclick="startGame()">Ещё раунд <i class="ti ti-arrow-right"></i></button>
   </div>
@@ -711,7 +744,7 @@ function selectOption(btn, correct, p) {
   if (answered) return;
   answered = true;
   if (correct) score++;
-  else mistakes.push({ phase: phase, prey: current.name });
+  else mistakes.push({ phase: phase, prey: current.name, wrongText: btn.textContent.trim() });
 
   document.querySelectorAll('.option').forEach(b => {
     b.disabled = true;
@@ -750,6 +783,16 @@ function nextPhase() {
 let mistakes = [];
 
 function showResult() {
+  // Сохраняем раунд в историю
+  const roundData = {
+    prey: current.name,
+    preyType: current.type,
+    score: score,
+    mistakes: mistakes.map(m => ({ phase: m.phase, wrongText: m.wrongText })),
+    ts: Date.now()
+  };
+  saveRound(roundData);
+
   document.getElementById('final-score').textContent = score + '/4';
   const ranks = ['Добыча', 'Новичок', 'Охотник', 'Опытный', 'Мастер'];
   document.getElementById('final-rank').textContent = ranks[score];
@@ -835,6 +878,78 @@ function showResult() {
     });
 
     document.getElementById('vuln-list').innerHTML = html;
+  }
+
+  // История dots
+  const history = loadHistory();
+  const dotsEl = document.getElementById('history-dots');
+  const last12 = history.slice(-12);
+  dotsEl.innerHTML = last12.map(r => {
+    const allCorrect = r.score === 4;
+    const color = allCorrect ? 'correct' : r.score >= 2 ? 'mild' : 'wrong';
+    return `<div class="history-dot ${color}" title="${r.preyType}: ${r.score}/4"></div>`;
+  }).join('');
+
+  // Накопительный профиль — показываем после 3+ раундов
+  const cumEl = document.getElementById('cumulative-profile');
+  const cumContent = document.getElementById('cumulative-content');
+  const roundsCountEl = document.getElementById('rounds-count');
+
+  if (history.length >= 3) {
+    cumEl.style.display = 'block';
+    roundsCountEl.textContent = `На основе ${history.length} раундов`;
+
+    // Собираем все ошибки
+    const allMistakes = history.flatMap(r => r.mistakes || []);
+
+    // Считаем по фазам
+    const phaseCounts = {0:0, 1:0, 2:0, 3:0};
+    const phaseChoices = {0:[], 1:[], 2:[], 3:[]};
+    allMistakes.forEach(m => {
+      phaseCounts[m.phase]++;
+      if (m.wrongText) phaseChoices[m.phase].push(m.wrongText);
+    });
+
+    const phaseNames = ['Распознать', 'Подсадить', 'Удержать', 'Эксплуатировать'];
+    const totalRounds = history.length;
+
+    let html = '';
+
+    // Сортируем фазы по частоте ошибок
+    const sortedPhases = [0,1,2,3].sort((a,b) => phaseCounts[b] - phaseCounts[a]);
+
+    sortedPhases.forEach(ph => {
+      const count = phaseCounts[ph];
+      if (count === 0) return;
+      const pct = Math.round(count / totalRounds * 100);
+      const isStrong = pct >= 60;
+      const isMild = pct >= 30 && pct < 60;
+
+      const cardClass = isStrong ? 'pattern-card' : isMild ? 'pattern-card mild' : 'pattern-card mild';
+      const titleClass = isStrong ? 'coral' : 'amber';
+
+      // Самый частый неправильный выбор в этой фазе
+      const choices = phaseChoices[ph];
+      const choiceFreq = {};
+      choices.forEach(c => { choiceFreq[c] = (choiceFreq[c] || 0) + 1; });
+      const topChoice = Object.keys(choiceFreq).sort((a,b) => choiceFreq[b]-choiceFreq[a])[0];
+      const meaning = topChoice ? getWrongMeaning(ph, topChoice) : '';
+
+      html += `<div class="${cardClass}">
+        <div class="pattern-title ${titleClass}">Фаза ${ph+1} — ${phaseNames[ph]}: ошибка в ${pct}% раундов</div>
+        ${meaning ? `<div class="pattern-text">${meaning}</div>` : ''}
+        ${topChoice ? `<div class="choice-item" style="margin-top:8px"><strong>Вы выбирали:</strong> «${topChoice.substring(0,80)}${topChoice.length>80?'...':''}»</div>` : ''}
+      </div>`;
+    });
+
+    // Если нет ошибок ни в одной фазе
+    if (html === '') {
+      html = `<div class="pattern-card none"><div class="pattern-title teal">Устойчивых паттернов не обнаружено</div><div class="pattern-text">Пока ошибок недостаточно для анализа. Продолжайте играть.</div></div>`;
+    }
+
+    cumContent.innerHTML = html;
+  } else {
+    cumEl.style.display = 'none';
   }
 
   showScreen('s-result');
