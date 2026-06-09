@@ -840,6 +840,7 @@ function selectOption(btn, correct, p) {
   nb.innerHTML = phase < 3
     ? 'Следующая фаза <i class="ti ti-arrow-right"></i>'
     : 'Получить профиль добычи <i class="ti ti-user"></i>';
+  setTimeout(() => nb.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
 }
 
 function nextPhase() {
