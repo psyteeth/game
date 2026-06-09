@@ -39,7 +39,7 @@ h1 { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
 .btn { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 0.5px solid var(--border2); border-radius: var(--radius); padding: 8px 18px; font-size: 14px; color: var(--text); cursor: pointer; transition: background 0.12s, transform 0.1s; font-family: inherit; }
 .btn:hover { background: var(--bg2); }
 .btn:active { transform: scale(0.98); }
-.btn-primary { background: var(--purple); color: var(--purple-l); border-color: var(--purple); }
+.btn-primary { background: var(--purple); color: var(--purple-l); border-color: var(--purple); position: relative; z-index: 10; }
 .btn-primary:hover { background: var(--purple-d); }
 .phase-bar { display: flex; margin-bottom: 1.5rem; border-radius: var(--radius); overflow: hidden; border: 0.5px solid var(--border); }
 .phase-step { flex: 1; padding: 8px 4px; text-align: center; font-size: 11px; color: var(--text3); background: var(--bg2); transition: background 0.2s, color 0.2s; }
@@ -62,8 +62,8 @@ h1 { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
 .feedback.bad { background: var(--coral-l); color: var(--coral-d); border-left: 3px solid var(--coral); }
 .manual-ref { background: var(--purple-l); border-radius: var(--radius); padding: 10px 14px; font-size: 13px; color: var(--purple-d); margin-bottom: 1.25rem; border-left: 3px solid var(--purple); line-height: 1.6; }
 .manual-ref .ref-num { font-weight: 500; color: var(--purple); }
-.expand-box { background: var(--amber-l); border-radius: var(--radius); padding: 10px 14px; font-size: 13px; color: var(--amber-d); margin-bottom: 1.25rem; border-left: 3px solid var(--amber); line-height: 1.6; }
-.nav-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.expand-box { background: var(--amber-l); border-radius: var(--radius); padding: 10px 14px; font-size: 13px; color: var(--amber-d); margin-bottom: 1.25rem; border-left: 3px solid var(--amber); line-height: 1.6; position: relative; z-index: 1; pointer-events: none; }
+.nav-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; position: relative; z-index: 10; }
 .profile-card { border-radius: var(--radius-lg); border: 0.5px solid var(--border); overflow: hidden; margin-bottom: 1rem; }
 .profile-header { padding: 1rem 1.25rem; background: var(--purple-l); }
 .profile-name { font-size: 18px; font-weight: 500; color: var(--purple-d); }
@@ -144,7 +144,7 @@ h1 { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
   <div class="manual-ref" id="manual-ref" style="display:none"></div>
   <div class="expand-box" id="expand-box" style="display:none"></div>
   <div class="nav-row">
-    <button class="btn btn-primary" onclick="nextPhase()" id="next-btn" style="display:none"></button>
+    <button class="btn btn-primary" onclick="nextPhase()" id="next-btn" style="display:none;cursor:pointer;position:relative;z-index:999"></button>
   </div>
 </div>
 
@@ -840,7 +840,10 @@ function selectOption(btn, correct, p) {
   nb.innerHTML = phase < 3
     ? 'Следующая фаза <i class="ti ti-arrow-right"></i>'
     : 'Получить профиль добычи <i class="ti ti-user"></i>';
-  setTimeout(() => nb.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+  setTimeout(() => {
+    nb.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    nb.focus();
+  }, 150);
 }
 
 function nextPhase() {
@@ -851,7 +854,47 @@ function nextPhase() {
 // Хранилище ошибок
 let mistakes = [];
 
+
+const STORAGE_KEY = 'psyteeth_hunter_history';
+let _memHistory = [];
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      _memHistory = JSON.parse(raw);
+    }
+  } catch(e) {}
+  return _memHistory;
+}
+
+function saveRound(roundData) {
+  _memHistory.push(roundData);
+  if (_memHistory.length > 30) _memHistory.shift();
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_memHistory)); } catch(e) {}
+}
+
+function resetHistory() {
+  _memHistory = [];
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+  try {
+    document.getElementById('cumulative-profile').style.display = 'none';
+    document.getElementById('history-dots').innerHTML = '';
+  } catch(e) {}
+}
+
 function showResult() {
+  try { _doShowResult(); } catch(e) {
+    console.error('showResult error:', e.message, e.stack);
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('s-result').classList.add('active');
+    try { document.getElementById('final-score').textContent = score + '/4'; } catch(e2){}
+    try { document.getElementById('final-rank').textContent = ['Добыча','Новичок','Охотник','Опытный','Мастер'][score]; } catch(e2){}
+    try { document.getElementById('prof-name').textContent = current ? current.name : ''; } catch(e2){}
+  }
+}
+
+function _doShowResult() {
   // Сохраняем раунд в историю
   const roundData = {
     prey: current.name,
